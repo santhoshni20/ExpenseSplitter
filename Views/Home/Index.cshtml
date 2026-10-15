@@ -1,0 +1,387 @@
+@model ExpenseSplitter.Models.DTOs.DashboardViewModel
+@{
+    ViewData["Title"] = "Event Expense Splitter";
+}
+
+<!-- Flash Alerts -->
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show shadow-sm d-flex align-items-center gap-2 mb-4" role="alert">
+        <i class="bi bi-check-circle-fill fs-5"></i>
+        <div>@TempData["Success"]</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show shadow-sm d-flex align-items-center gap-2 mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>@TempData["Error"]</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Top Metric Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+            <div class="text-muted small fw-semibold">TOTAL EXPENSES</div>
+            <div class="fs-4 fw-bold text-dark mt-1">@Model.TotalExpenses.ToString("C2")</div>
+            <div class="text-secondary small mt-1"><i class="bi bi-receipt me-1"></i>All logged costs</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card stat-purple p-3 h-100">
+            <div class="text-muted small fw-semibold">PARTICIPANTS</div>
+            <div class="fs-4 fw-bold text-dark mt-1">@Model.Participants.Count</div>
+            <div class="text-secondary small mt-1"><i class="bi bi-people me-1"></i>Active members</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card stat-green p-3 h-100">
+            <div class="text-muted small fw-semibold">EXPENSES LOGGED</div>
+            <div class="fs-4 fw-bold text-dark mt-1">@Model.Expenses.Count</div>
+            <div class="text-secondary small mt-1"><i class="bi bi-tags me-1"></i>Event transactions</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card stat-amber p-3 h-100">
+            <div class="text-muted small fw-semibold">SETTLEMENTS NEEDED</div>
+            <div class="fs-4 fw-bold text-dark mt-1">@Model.Settlements.Count</div>
+            <div class="text-secondary small mt-1"><i class="bi bi-arrow-left-right me-1"></i>Min payments</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Forms -->
+    <div class="col-lg-4">
+        <!-- Add Participant Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-person-plus-fill text-primary me-2"></i>Add Participant</span>
+                <span class="badge bg-primary rounded-pill">@Model.Participants.Count</span>
+            </div>
+            <div class="card-body">
+                <form asp-action="AddParticipant" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-secondary">Student Name</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                            <input type="text" name="Name" class="form-control" placeholder="e.g. Alice" required minlength="2" maxlength="100" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        <i class="bi bi-plus-lg me-1"></i>Add Student
+                    </button>
+                </form>
+
+                @if (Model.Participants.Any())
+                {
+                    <hr class="my-3" />
+                    <div class="small fw-semibold text-secondary mb-2">Current Students:</div>
+                    <div class="d-flex flex-wrap gap-1">
+                        @foreach (var p in Model.Participants)
+                        {
+                            <span class="badge-participant d-inline-flex align-items-center gap-1">
+                                <span>@p.Name</span>
+                                <form asp-action="DeleteParticipant" method="post" class="d-inline" onsubmit="return confirm('Remove @p.Name?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <button type="submit" class="btn btn-link p-0 text-danger border-0 lh-1" title="Remove participant">
+                                        <i class="bi bi-x-circle-fill small"></i>
+                                    </button>
+                                </form>
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Add Expense Card -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-cash-coin text-success me-2"></i>Add Expense
+            </div>
+            <div class="card-body">
+                @if (!Model.Participants.Any())
+                {
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-person-exclamation fs-1 text-warning mb-2 d-block"></i>
+                        <p class="mb-0">Please add at least one participant before recording expenses.</p>
+                    </div>
+                }
+                else
+                {
+                    <form asp-action="AddExpense" method="post" id="addExpenseForm">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-secondary">Description</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-pencil-square"></i></span>
+                                <input type="text" name="Description" class="form-control" placeholder="e.g. Pizza dinner, Taxi fare" required maxlength="200" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-secondary">Amount ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-currency-dollar"></i></span>
+                                <input type="number" step="0.01" min="0.01" name="Amount" class="form-control" placeholder="0.00" required />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-secondary">Who Paid?</label>
+                            <select name="PayerId" class="form-select" required>
+                                <option value="">-- Select Person Who Paid --</option>
+                                @foreach (var p in Model.Participants)
+                                {
+                                    <option value="@p.Id">@p.Name</option>
+                                }
+                            </select>
+                            <div class="form-text small">This person receives full credit for the amount paid.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-semibold small text-secondary mb-0">Split Equally Between</label>
+                                <div>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none me-2" onclick="toggleAllCheckboxes(true)">Select All</button>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" onclick="toggleAllCheckboxes(false)">Clear</button>
+                                </div>
+                            </div>
+                            <div class="participant-checkbox-grid">
+                                @foreach (var p in Model.Participants)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input participant-check" type="checkbox" name="ParticipantIds" value="@p.Id" id="check_@p.Id" checked />
+                                        <label class="form-check-label" for="check_@p.Id">
+                                            @p.Name
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                            <div class="form-text small">Each selected person will be charged an equal share.</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-semibold">
+                            <i class="bi bi-check-lg me-1"></i>Add &amp; Split Expense
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Settlement, Balances, and Expenses Table -->
+    <div class="col-lg-8">
+        <!-- Settlement Plan Card -->
+        <div class="card mb-4 border-success">
+            <div class="card-header bg-success bg-opacity-10 text-success d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-lightning-charge-fill me-2"></i>Minimum Settlement Plan</span>
+                <span class="badge bg-success">@Model.Settlements.Count Payment@(Model.Settlements.Count == 1 ? "" : "s")</span>
+            </div>
+            <div class="card-body">
+                @if (!Model.Settlements.Any())
+                {
+                    <div class="text-center py-4">
+                        <i class="bi bi-emoji-smile fs-1 text-success mb-2 d-block"></i>
+                        <h6 class="fw-bold text-dark">All Settled Up!</h6>
+                        <p class="text-muted small mb-0">There are no outstanding debts between participants.</p>
+                    </div>
+                }
+                else
+                {
+                    <p class="small text-muted mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        The following minimum transactions will settle all event debts with the fewest payments possible:
+                    </p>
+                    <div class="row g-2">
+                        @foreach (var s in Model.Settlements)
+                        {
+                            <div class="col-md-6">
+                                <div class="settlement-card">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1">
+                                            @s.FromParticipantName
+                                        </span>
+                                        <i class="bi bi-arrow-right settlement-arrow"></i>
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">
+                                            @s.ToParticipantName
+                                        </span>
+                                    </div>
+                                    <div class="fw-bold text-success fs-5">
+                                        @s.Amount.ToString("C2")
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Participant Balances Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-calculator-fill text-primary me-2"></i>Participant Balances &amp; Summary
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Participant</th>
+                                <th class="text-end">Total Paid</th>
+                                <th class="text-end">Share Owed</th>
+                                <th class="text-end">Net Balance</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.Balances.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        No participants added yet.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var b in Model.Balances)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">
+                                            <i class="bi bi-person-circle text-secondary me-1"></i>@b.ParticipantName
+                                        </td>
+                                        <td class="text-end text-success fw-semibold">@b.TotalPaid.ToString("C2")</td>
+                                        <td class="text-end text-danger fw-semibold">@b.TotalOwed.ToString("C2")</td>
+                                        <td class="text-end fw-bold @(b.NetBalance > 0.005m ? "text-success" : b.NetBalance < -0.005m ? "text-danger" : "text-muted")">
+                                            @(b.NetBalance > 0 ? "+" : "")@b.NetBalance.ToString("C2")
+                                        </td>
+                                        <td class="text-center">
+                                            @if (b.NetBalance > 0.005m)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    Receives @b.NetBalance.ToString("C2")
+                                                </span>
+                                            }
+                                            else if (b.NetBalance < -0.005m)
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                                    Owes @(Math.Abs(b.NetBalance).ToString("C2"))
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                    Settled ($0.00)
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Expenses Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-card-checklist text-primary me-2"></i>All Expenses</span>
+                <span class="badge bg-secondary rounded-pill">@Model.Expenses.Count</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Paid By</th>
+                                <th class="text-end">Amount</th>
+                                <th>Split Between</th>
+                                <th class="text-end">Share / Person</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.Expenses.Any())
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        <i class="bi bi-receipt text-secondary fs-3 d-block mb-1"></i>
+                                        No expenses recorded yet. Add your first expense on the left!
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var exp in Model.Expenses)
+                                {
+                                    <tr>
+                                        <td class="text-muted small">@exp.Date.ToString("MMM dd, yyyy")</td>
+                                        <td class="fw-semibold">@exp.Description</td>
+                                        <td>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                @exp.PayerName
+                                            </span>
+                                        </td>
+                                        <td class="text-end fw-bold text-dark">@exp.Amount.ToString("C2")</td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach (var sharedName in exp.SharedByNames)
+                                                {
+                                                    <span class="badge bg-light text-dark border small">@sharedName</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-end text-muted small">
+                                            @exp.SharePerPerson.ToString("C2")
+                                        </td>
+                                        <td class="text-center">
+                                            <form asp-action="DeleteExpense" method="post" class="d-inline" onsubmit="return confirm('Delete this expense?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@exp.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete expense">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleAllCheckboxes(state) {
+            document.querySelectorAll('.participant-check').forEach(cb => {
+                cb.checked = state;
+            });
+        }
+
+        // Client-side validation for expense form
+        document.getElementById('addExpenseForm')?.addEventListener('submit', function (e) {
+            const checkedCount = document.querySelectorAll('.participant-check:checked').length;
+            if (checkedCount === 0) {
+                e.preventDefault();
+                alert('Please select at least one participant sharing the expense.');
+            }
+        });
+    </script>
+}
